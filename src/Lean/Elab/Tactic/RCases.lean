@@ -307,7 +307,7 @@ partial def rcasesCore (g : MVarId) (fs : FVarSubst) (clears : Array FVarId) (e 
     let type ← whnfD (← inferType e)
     let failK {α} _ : TermElabM α :=
       throwError "Tactic `rcases` failed: `{e} : {type}` is not an inductive datatype"
-    let (r, subgoals) ← matchConst type.getAppFn failK fun
+    let (r, subgoals, clears) ← matchConst type.getAppFn failK fun
       | ConstantInfo.quotInfo info, _ => do
         unless info.kind matches QuotKind.type do failK ()
         let pat := pat.asAlts.headD default
@@ -324,10 +324,14 @@ partial def rcasesCore (g : MVarId) (fs : FVarSubst) (clears : Array FVarId) (e 
           let (v, g) ← g.intro x
           let (varsOut, g) ← g.introNP vars.size
           let fs' := (vars.zip varsOut).foldl (init := fs) fun fs (v, w) => fs.insert v (mkFVar w)
-          pure ([(n, ps)], #[{mvarId := g, fields := #[mkFVar v], subst := fs', ctorName := n }])
+          -- Unlike `cases`, `Quot.ind` reintroduces the original quotient variable via the
+          -- revert/introNP dance above. Clear it so behavior matches inductives (#12891).
+          pure ([(n, ps)], #[{mvarId := g, fields := #[mkFVar v], subst := fs', ctorName := n }],
+            clears.push e.fvarId!)
       | ConstantInfo.inductInfo info, _ => do
         let (altVarNames, r) ← processConstructors pat.ref info.numParams #[] info.ctors pat.asAlts
-        (r, ·) <$> g.cases e.fvarId! altVarNames (useNatCasesAuxOn := true)
+        let subgoals ← g.cases e.fvarId! altVarNames (useNatCasesAuxOn := true)
+        pure (r, subgoals, clears)
       | _, _ => failK ()
     (·.2) <$> subgoals.foldlM (init := (r, a)) fun (r, a) ⟨goal, ctorName⟩ => do
       let rec
