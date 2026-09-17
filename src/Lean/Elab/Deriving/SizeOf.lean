@@ -24,6 +24,11 @@ open Command
 def mkSizeOfHandler (declNames : Array Name) : CommandElabM Bool := do
   if (← declNames.allM isInductive) then
     for declName in declNames do
+      -- `SizeOf` is generated automatically for inductives; re-deriving recreates the same
+      -- auxiliary decls and panics / kernel-errors (#9455).
+      let env ← getEnv
+      if env.find? (declName ++ `_sizeOf_inst) |>.isSome then
+        throwError m!"`SizeOf` instance for `{.ofConstName declName}` has already been derived"
       withoutExposeFromCtors declName <| liftTermElabM <| Meta.mkSizeOfInstances declName
     return true
   else
