@@ -172,8 +172,13 @@ if(CMAKE_SYSTEM_NAME MATCHES "Emscripten")
 
   # From https://emscripten.org/docs/compiling/WebAssembly.html#backends:
   # > The simple and safe thing is to pass all -s flags at both compile and link time.
-  set(EMSCRIPTEN_SETTINGS "-s ALLOW_MEMORY_GROWTH=1 -fwasm-exceptions -pthread -flto")
-  string(APPEND LEANC_EXTRA_CC_FLAGS " -pthread")
+  # Gate `-pthread` on MULTI_THREAD so `-DMULTI_THREAD=OFF` can produce a non-shared-memory
+  # wasm artifact (no SharedArrayBuffer / COOP-COEP requirement). See #15186.
+  set(EMSCRIPTEN_SETTINGS "-s ALLOW_MEMORY_GROWTH=1 -fwasm-exceptions -flto")
+  if(MULTI_THREAD)
+    string(APPEND EMSCRIPTEN_SETTINGS " -pthread")
+    string(APPEND LEANC_EXTRA_CC_FLAGS " -pthread")
+  endif()
   string(APPEND LEAN_EXTRA_CXX_FLAGS " -D LEAN_EMSCRIPTEN ${EMSCRIPTEN_SETTINGS}")
   string(APPEND LEAN_EXTRA_LINKER_FLAGS " ${EMSCRIPTEN_SETTINGS}")
 endif()
