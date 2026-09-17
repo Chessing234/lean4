@@ -28,7 +28,7 @@ def mkSizeOfHandler (declNames : Array Name) : CommandElabM Bool := do
       -- auxiliary decls and panics / kernel-errors (#9455).
       let env ← getEnv
       if env.find? (declName ++ `_sizeOf_inst) |>.isSome then
-        throwError m!"`SizeOf` instance for `{.ofConstName declName}` has already been derived"
+        throwError m!"cannot derive `SizeOf` for `{.ofConstName declName}`: an instance has already been generated automatically"
       withoutExposeFromCtors declName <| liftTermElabM <| Meta.mkSizeOfInstances declName
     return true
   else
